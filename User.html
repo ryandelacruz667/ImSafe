@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="./resources/ol.css">
+        <link rel="stylesheet" href="./resources/fontawesome-all.min.css">
+        <link href="./resources/photon-geocoder-autocomplete.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="./resources/ol-layerswitcher.css">
+        <link rel="stylesheet" href="./resources/qgis2web.css">
+        <link rel="stylesheet" href="./resources/app-ui.css">
+        <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        html, body {
+            background-color: #ffffff;
+        }
+        </style>
+        <title>Project Uwan – Status Reporter</title>
+    </head>
+    <body>
+        <div id="map">
+            <div id="popup" class="ol-popup">
+                <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+                <div id="popup-content"></div>
+            </div>
+        </div>
+        <div id="app-shell" data-role="user">
+            <header class="app-toolbar">
+                <div class="app-brand">
+                    <span class="app-logo" aria-hidden="true">&#128752;</span>
+                    <div class="app-title">
+                        <strong>Project Uwan</strong>
+                        <small>Status Reporting Portal</small>
+                    </div>
+                </div>
+                <div class="app-toolbar-actions">
+                    <button id="settings-toggle" class="app-button" type="button">Settings</button>
+                    <button id="status-toggle" class="app-button app-button-primary app-user-only" type="button">Report Status</button>
+                    <div class="app-user-menu">
+                        <span id="current-role" class="app-role-label"></span>
+                    </div>
+                </div>
+            </header>
+            <aside id="settings-panel" class="app-panel" role="dialog" aria-labelledby="settings-title">
+                <div class="app-panel-header">
+                    <h2 id="settings-title">Map Settings</h2>
+                    <button class="app-button app-button-ghost" data-close-panel="settings" type="button">Close</button>
+                </div>
+                <div class="app-panel-body">
+                    <section class="app-section">
+                        <h3>Base Map</h3>
+                        <p class="app-section-subtitle">Switch the background tiles used on the map.</p>
+                        <select id="base-layer-select" class="app-select" aria-label="Select base map layer"></select>
+                    </section>
+                    <section class="app-section">
+                        <h3>Interaction</h3>
+                        <label class="app-toggle">
+                            <input id="hover-popups-toggle" type="checkbox">
+                            <span>Enable hover popups</span>
+                        </label>
+                        <label class="app-toggle">
+                            <input id="highlight-toggle" type="checkbox">
+                            <span>Highlight features on hover</span>
+                        </label>
+                    </section>
+                </div>
+            </aside>
+            <div id="status-panel" class="app-modal app-hidden" role="dialog" aria-labelledby="status-title" aria-modal="true">
+                <div class="status-card">
+                    <header class="status-card-header">
+                        <h2 id="status-title">Report Your Status</h2>
+                        <button class="app-button app-button-ghost" id="status-close" type="button" aria-label="Close status dialog">Close</button>
+                    </header>
+                    <div class="status-card-body">
+                        <p class="status-intro">Help responders understand your situation by sharing a quick update.</p>
+                        <form id="status-form" class="status-form" autocomplete="off" novalidate>
+                            <input type="hidden" id="status-type" name="status">
+                            <section class="status-section">
+                                <h3>Status</h3>
+                                <p class="status-section-subtitle">Select the option that best describes what you need right now.</p>
+                                <div class="status-options" role="group" aria-label="Choose your current status">
+                                    <button type="button" class="status-option tone-emergency" data-status-option="need_help" aria-pressed="false">
+                                        <span class="status-option-title">Need Help</span>
+                                        <span class="status-option-desc">Immediate assistance required</span>
+                                    </button>
+                                    <button type="button" class="status-option tone-medical" data-status-option="need_medical" aria-pressed="false">
+                                        <span class="status-option-title">Need Medical Attention</span>
+                                        <span class="status-option-desc">Injury or health emergency</span>
+                                    </button>
+                                    <button type="button" class="status-option tone-evac" data-status-option="need_evacuation" aria-pressed="false">
+                                        <span class="status-option-title">Need Evacuation</span>
+                                        <span class="status-option-desc">Unable to stay in current location</span>
+                                    </button>
+                                    <button type="button" class="status-option tone-safe" data-status-option="safe" aria-pressed="false">
+                                        <span class="status-option-title">Safe</span>
+                                        <span class="status-option-desc">No assistance needed</span>
+                                    </button>
+                                </div>
+                                <p class="status-choice-hint">Tap a status above to continue.</p>
+                            </section>
+                            <section class="status-section">
+                                <h3>Reporter Details</h3>
+                                <p class="status-section-subtitle">Let us know who’s reporting and how many people are affected.</p>
+                                <label class="status-field">
+                                    <span>Your name</span>
+                                    <input id="status-name" name="name" type="text" autocomplete="name" required placeholder="Juan Dela Cruz">
+                                </label>
+                                <label class="status-field">
+                                    <span>Households / Occupants</span>
+                                    <input id="status-households" name="households" type="number" inputmode="numeric" min="1" step="1" required placeholder="Number of people or households">
+                                </label>
+                            </section>
+                            <section class="status-section">
+                                <h3>Location</h3>
+                                <p class="status-section-subtitle">We detect your GPS position automatically. Add helpful notes if you can.</p>
+                                <div id="status-location" class="status-location" role="status" aria-live="polite">Detecting your location…</div>
+                                <label class="status-field">
+                                    <span>Location notes (optional)</span>
+                                    <textarea id="status-address" name="address" rows="2" placeholder="Nearest landmark, barangay, or extra guidance"></textarea>
+                                </label>
+                            </section>
+                            <section class="status-section">
+                                <h3>Additional Details (optional)</h3>
+                                <label class="status-field">
+                                    <span>Notes</span>
+                                    <textarea id="status-notes" name="notes" rows="3" placeholder="Urgent needs, mobility concerns, contact info, etc."></textarea>
+                                </label>
+                            </section>
+                            <div class="status-form-footer">
+                                <button id="status-submit" class="app-button app-button-primary" type="submit" disabled>Submit update</button>
+                                <div id="status-feedback" class="status-feedback" role="alert" aria-live="assertive"></div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div id="navigation-instruction" class="app-nav-toast app-hidden" role="status" aria-live="polite"></div>
+        </div>
+        <script src="./resources/qgis2web_expressions.js"></script>
+        <script src="./resources/proj4.js"></script>
+        <script>proj4.defs('EPSG:32651','+proj=utm +zone=51 +datum=WGS84 +units=m +no_defs');</script>
+        <script src="./resources/functions.js"></script>
+        <script src="./resources/ol.js"></script>
+        <script src="./resources/ol-layerswitcher.js"></script>
+        <script src="./resources/photon-geocoder-autocomplete.min.js"></script>
+        <script src="./layers/layers.js" type="text/javascript"></script>
+        <script src="./resources/Autolinker.min.js"></script>
+        <script src="./resources/qgis2web.js"></script>
+        <script>
+            window.PROJECT_UWAN_ORS = window.PROJECT_UWAN_ORS || {
+                apiKey: 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImRiOTExNzM3NGE4NzQxNTE4NWFlMTVkMjQzOTAxMjU3IiwiaCI6Im11cm11cjY0In0=',
+                profile: 'driving-car',
+                responder: {
+                    useGeolocation: false,
+                    location: { lat: 17.304430, lng: 121.778607 }
+                }
+            };
+        </script>
+        <script type="module" src="./resources/app-ui.js"></script>
+    </body>
+</html>
+

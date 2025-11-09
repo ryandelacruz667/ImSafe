@@ -960,6 +960,18 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .status-option {
+    padding: 0.95rem 1rem;
+  }
+
+  .status-option-title {
+    font-size: 1rem;
+  }
+
+  .status-option-desc {
+    font-size: 0.85rem;
+  }
+
   .status-card {
     border-radius: 0.75rem;
   }

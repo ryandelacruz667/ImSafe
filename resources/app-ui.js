@@ -42,7 +42,174 @@ const RESPONDER_FIXED_LOCATION = RESPONDER_CONFIG.location || null;
 
 const storageKeyForRole = (role) => `project-uwan-settings-${role}`;
 const storageKeyIncidents = 'project-uwan-incidents';
+const storageKeyPendingSync = 'project-uwan-pending-sync';
 const MAX_INCIDENTS_STORED = 500;
+
+function isFunction(value) {
+  return typeof value === 'function';
+}
+
+function resolveField(source, descriptor) {
+  if (!descriptor) {
+    return undefined;
+  }
+  if (isFunction(descriptor)) {
+    try {
+      return descriptor(source);
+    } catch (error) {
+      console.warn('Field resolver function failed', error);
+      return undefined;
+    }
+  }
+  if (Array.isArray(descriptor)) {
+    for (const candidate of descriptor) {
+      const result = resolveField(source, candidate);
+      if (result !== undefined && result !== null && result !== '') {
+        return result;
+      }
+    }
+    return undefined;
+  }
+  if (typeof descriptor !== 'string' || !descriptor.length) {
+    return undefined;
+  }
+  return descriptor.split('.').reduce((acc, key) => {
+    if (acc === null || acc === undefined) {
+      return undefined;
+    }
+    return acc[key];
+  }, source);
+}
+
+function normalizeIncidentRecord(rawRecord) {
+  if (!rawRecord || typeof rawRecord !== 'object') {
+    return null;
+  }
+  const id = resolveField(rawRecord, INCIDENT_FIELD_MAP.id);
+  const timestampRaw = resolveField(rawRecord, INCIDENT_FIELD_MAP.timestamp);
+  if (!id || !timestampRaw) {
+    return null;
+  }
+  const statusRaw =
+    resolveField(rawRecord, INCIDENT_FIELD_MAP.status) || STATUS_TYPES.NEED_HELP;
+  const status =
+    typeof statusRaw === 'string'
+      ? Object.values(STATUS_TYPES).find(
+          (candidate) => candidate === statusRaw.toLowerCase()
+        ) || STATUS_TYPES.NEED_HELP
+      : STATUS_TYPES.NEED_HELP;
+  const name = resolveField(rawRecord, INCIDENT_FIELD_MAP.name) || 'Unnamed reporter';
+  const householdsRaw = resolveField(rawRecord, INCIDENT_FIELD_MAP.households);
+  const households =
+    householdsRaw !== undefined && householdsRaw !== null
+      ? Number(householdsRaw)
+      : null;
+  const address = resolveField(rawRecord, INCIDENT_FIELD_MAP.address) || '';
+  const notes = resolveField(rawRecord, INCIDENT_FIELD_MAP.notes) || '';
+  const latRaw = resolveField(rawRecord, INCIDENT_FIELD_MAP.lat);
+  const lngRaw = resolveField(rawRecord, INCIDENT_FIELD_MAP.lng);
+  const accuracyRaw = resolveField(rawRecord, INCIDENT_FIELD_MAP.accuracy);
+  const lat = Number(latRaw);
+  const lng = Number(lngRaw);
+  const accuracy = Number(accuracyRaw);
+  const location =
+    Number.isFinite(lat) && Number.isFinite(lng)
+      ? {
+          lat,
+          lng,
+          ...(Number.isFinite(accuracy) ? { accuracy } : {}),
+        }
+      : null;
+  let timestamp = timestampRaw;
+  if (timestamp instanceof Date) {
+    timestamp = timestamp.toISOString();
+  } else if (typeof timestamp === 'number') {
+    timestamp = new Date(timestamp).toISOString();
+  } else if (typeof timestamp === 'string') {
+    const parsed = Date.parse(timestamp);
+    timestamp = Number.isNaN(parsed) ? timestamp : new Date(parsed).toISOString();
+  }
+  return {
+    id: String(id),
+    status,
+    name,
+    households: Number.isFinite(households) && households > 0 ? households : null,
+    address,
+    notes,
+    timestamp,
+    location,
+  };
+}
+
+const STORAGE_CONFIG = window.PROJECT_UWAN_STORAGE || {};
+const STORAGE_MODE = (STORAGE_CONFIG.mode || 'local').toLowerCase();
+const REMOTE_LIST_ENDPOINT =
+  STORAGE_CONFIG.listEndpoint || STORAGE_CONFIG.endpoint || null;
+const REMOTE_CREATE_ENDPOINT =
+  STORAGE_CONFIG.createEndpoint || STORAGE_CONFIG.endpoint || null;
+const REMOTE_LIST_METHOD = (STORAGE_CONFIG.listMethod || 'GET').toUpperCase();
+const REMOTE_CREATE_METHOD = (STORAGE_CONFIG.createMethod || 'POST').toUpperCase();
+const REMOTE_HEADERS = STORAGE_CONFIG.headers || {};
+const REMOTE_LIST_RESPONSE_PATH = STORAGE_CONFIG.listResponsePath || null;
+const REMOTE_POLL_INTERVAL =
+  Number.isFinite(Number(STORAGE_CONFIG.pollInterval))
+    ? Number(STORAGE_CONFIG.pollInterval)
+    : 15000;
+const REMOTE_RETRY_INTERVAL =
+  Number.isFinite(Number(STORAGE_CONFIG.retryInterval))
+    ? Number(STORAGE_CONFIG.retryInterval)
+    : 45000;
+const REMOTE_SHOULD_POLL_FOR_USERS = Boolean(STORAGE_CONFIG.pollForUsers);
+const REMOTE_LIST_QUERY = STORAGE_CONFIG.listQuery || null;
+const REMOTE_CREATE_QUERY = STORAGE_CONFIG.createQuery || null;
+const REMOTE_LIST_BODY_CONFIG = STORAGE_CONFIG.listBody || null;
+const REMOTE_CREATE_BODY_CONFIG = STORAGE_CONFIG.createBody || null;
+const REMOTE_ENABLE =
+  STORAGE_MODE !== 'local' &&
+  (typeof REMOTE_LIST_ENDPOINT === 'string' || typeof REMOTE_CREATE_ENDPOINT === 'string');
+
+const transformIncoming =
+  typeof STORAGE_CONFIG.transformIncoming === 'function'
+    ? STORAGE_CONFIG.transformIncoming
+    : null;
+const transformOutgoing =
+  typeof STORAGE_CONFIG.transformOutgoing === 'function'
+    ? STORAGE_CONFIG.transformOutgoing
+    : null;
+
+const INCIDENT_FIELD_MAP_DEFAULT = {
+  id: ['id', 'ID'],
+  status: ['status', 'Status'],
+  name: ['name', 'Name', 'reporter'],
+  households: ['households', 'Households', 'occupants'],
+  address: ['address', 'Address', 'location_notes'],
+  notes: ['notes', 'Notes', 'additional_notes'],
+  timestamp: ['timestamp', 'created_at', 'createdAt', 'submitted_at'],
+  lat: ['location.lat', 'lat', 'latitude'],
+  lng: ['location.lng', 'lng', 'longitude'],
+  accuracy: ['location.accuracy', 'accuracy', 'location_accuracy'],
+};
+
+const INCIDENT_FIELD_MAP = (() => {
+  const overrides = STORAGE_CONFIG.fieldMap || {};
+  return Object.keys({
+    ...INCIDENT_FIELD_MAP_DEFAULT,
+    ...overrides,
+  }).reduce((acc, key) => {
+    const defaultValue = INCIDENT_FIELD_MAP_DEFAULT[key] || [];
+    const overrideValue = overrides[key];
+    if (typeof overrideValue === 'function') {
+      acc[key] = overrideValue;
+    } else if (Array.isArray(overrideValue)) {
+      acc[key] = overrideValue;
+    } else if (overrideValue !== undefined) {
+      acc[key] = [overrideValue];
+    } else {
+      acc[key] = Array.isArray(defaultValue) ? defaultValue : [defaultValue];
+    }
+    return acc;
+  }, {});
+})();
 
 function defaultSettings() {
   return {
@@ -64,30 +231,141 @@ function loadIncidentsFromStorage() {
       return [];
     }
     return parsed
-      .filter((record) => record && record.id && record.timestamp)
-      .map((record) => {
-        const lat = Number(record?.location?.lat);
-        const lng = Number(record?.location?.lng);
-        const accuracy = Number(record?.location?.accuracy);
-        return {
-          ...record,
-          households: record.households
-            ? Number(record.households) || null
-            : null,
-          location:
-            Number.isFinite(lat) && Number.isFinite(lng)
-              ? {
-                  lat,
-                  lng,
-                  accuracy: Number.isFinite(accuracy) ? accuracy : undefined,
-                }
-              : null,
-        };
-      });
+      .map((record) => normalizeIncidentRecord(record))
+      .filter(Boolean);
   } catch (error) {
     console.warn('Unable to load incident reports', error);
     return [];
   }
+}
+
+function loadPendingSyncQueue() {
+  try {
+    const raw = localStorage.getItem(storageKeyPendingSync);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.map((record) => normalizeIncidentRecord(record)).filter(Boolean);
+  } catch (error) {
+    console.warn('Unable to load pending incident queue', error);
+    return [];
+  }
+}
+
+let pendingSyncQueue = loadPendingSyncQueue();
+
+function persistPendingSyncQueue() {
+  try {
+    if (!pendingSyncQueue.length) {
+      localStorage.removeItem(storageKeyPendingSync);
+      return;
+    }
+    localStorage.setItem(storageKeyPendingSync, JSON.stringify(pendingSyncQueue));
+  } catch (error) {
+    console.warn('Unable to persist pending incident queue', error);
+  }
+}
+
+function enqueuePendingSync(record) {
+  if (!record || !record.id) {
+    return;
+  }
+  const exists = pendingSyncQueue.some((entry) => entry.id === record.id);
+  if (exists) {
+    return;
+  }
+  pendingSyncQueue.push(record);
+  persistPendingSyncQueue();
+}
+
+function clearPendingSyncEntry(recordId) {
+  if (!recordId) {
+    return;
+  }
+  const nextQueue = pendingSyncQueue.filter((entry) => entry.id !== recordId);
+  if (nextQueue.length !== pendingSyncQueue.length) {
+    pendingSyncQueue = nextQueue;
+    persistPendingSyncQueue();
+  }
+}
+
+function useRemoteStorage() {
+  return Boolean(REMOTE_ENABLE && (REMOTE_LIST_ENDPOINT || REMOTE_CREATE_ENDPOINT));
+}
+
+function buildRequestHeaders(baseHeaders = {}) {
+  return {
+    'Content-Type': 'application/json',
+    ...REMOTE_HEADERS,
+    ...baseHeaders,
+  };
+}
+
+function resolveResponseCollection(payload) {
+  if (!payload) {
+    return [];
+  }
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (!REMOTE_LIST_RESPONSE_PATH) {
+    return Array.isArray(payload?.data) ? payload.data : [];
+  }
+  const extracted = resolveField(payload, REMOTE_LIST_RESPONSE_PATH);
+  return Array.isArray(extracted) ? extracted : [];
+}
+
+function appendQueryParams(url, query) {
+  if (!query) {
+    return url;
+  }
+  if (typeof query === 'string') {
+    if (!query.length) {
+      return url;
+    }
+    return `${url}${url.includes('?') ? '&' : '?'}${query}`;
+  }
+  if (typeof query !== 'object') {
+    return url;
+  }
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === null) {
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item) => params.append(key, item));
+    } else {
+      params.append(key, value);
+    }
+  });
+  const serialized = params.toString();
+  if (!serialized.length) {
+    return url;
+  }
+  return `${url}${url.includes('?') ? '&' : '?'}${serialized}`;
+}
+
+function buildRequestBody(config, context) {
+  if (!config) {
+    return null;
+  }
+  if (isFunction(config)) {
+    try {
+      return config(context);
+    } catch (error) {
+      console.warn('Request body builder threw an error', error);
+      return null;
+    }
+  }
+  if (typeof config === 'object') {
+    return { ...config };
+  }
+  return null;
 }
 
 function escapeHtml(value) {
@@ -139,6 +417,8 @@ const state = {
   incidents: loadIncidentsFromStorage(),
   currentLocation: null,
   activeStatusType: null,
+  remoteSyncEnabled: useRemoteStorage(),
+  remoteInitialSyncComplete: false,
 };
 
 const elements = {
@@ -181,6 +461,9 @@ const routeCache = new Map();
 let activeRouteMarkerLayer = null;
 let activeRouteAnimationId = null;
 let navigationInstructionTimeout = null;
+let remoteSyncIntervalId = null;
+let pendingRetryIntervalId = null;
+let remoteSyncInFlight = false;
 
 function sanitizeTitle(rawTitle) {
   if (!rawTitle) {
@@ -309,6 +592,54 @@ function saveIncidentsToStorage() {
   } catch (error) {
     console.warn('Unable to store incident reports', error);
   }
+}
+
+function upsertIncidents(records, options = {}) {
+  const { triggerNotifications = true } = options;
+  if (!Array.isArray(records) || !records.length) {
+    return { added: [] };
+  }
+  const normalizedRecords = records
+    .map((record) => normalizeIncidentRecord(record))
+    .filter((record) => record && record.id);
+  if (!normalizedRecords.length) {
+    return { added: [] };
+  }
+  const existingMap = new Map(
+    state.incidents
+      .filter((incident) => incident && incident.id)
+      .map((incident) => [incident.id, incident])
+  );
+  const newlyAdded = [];
+  normalizedRecords.forEach((record) => {
+    const existing = existingMap.get(record.id);
+    if (!existing) {
+      existingMap.set(record.id, record);
+      newlyAdded.push(record);
+      return;
+    }
+    const existingTime = Date.parse(existing.timestamp);
+    const incomingTime = Date.parse(record.timestamp);
+    if (
+      Number.isFinite(incomingTime) &&
+      (!Number.isFinite(existingTime) || incomingTime >= existingTime)
+    ) {
+      existingMap.set(record.id, { ...existing, ...record });
+    }
+  });
+  const merged = Array.from(existingMap.values()).sort((a, b) => {
+    const aTime = Date.parse(a.timestamp);
+    const bTime = Date.parse(b.timestamp);
+    return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+  });
+  state.incidents = merged.slice(0, MAX_INCIDENTS_STORED);
+  saveIncidentsToStorage();
+  syncIncidentLayer();
+  renderIncidentList();
+  if (triggerNotifications && state.canManageData && newlyAdded.length) {
+    newlyAdded.forEach((incident) => notifyNewIncident(incident));
+  }
+  return { added: newlyAdded };
 }
 
 function ensureIncidentLayer() {
@@ -686,7 +1017,7 @@ function closeStatusPanel() {
   updateStatusLocation('Detecting your location…');
 }
 
-function handleStatusSubmit(event) {
+async function handleStatusSubmit(event) {
   event.preventDefault();
   if (!elements.statusForm) return;
   if (!state.activeStatusType) {
@@ -720,13 +1051,44 @@ function handleStatusSubmit(event) {
         }
       : null,
   };
-  addIncident(record);
-  showStatusFeedback('Thank you! Your status has been recorded.', 'success');
+  addIncident(record, { triggerNotifications: state.canManageData });
   elements.statusSubmit.disabled = true;
-  setTimeout(() => {
-    closeStatusPanel();
-    showStatusFeedback('');
-  }, 1800);
+
+  if (!useRemoteStorage()) {
+    showStatusFeedback('Thank you! Your status has been recorded.', 'success');
+    setTimeout(() => {
+      closeStatusPanel();
+      showStatusFeedback('');
+    }, 1800);
+    return;
+  }
+
+  showStatusFeedback('Sending your update to the command center…');
+  try {
+    await pushIncidentToRemote(record);
+    clearPendingSyncEntry(record.id);
+    if (pendingSyncQueue.length) {
+      await flushPendingSyncQueue();
+    }
+    showStatusFeedback('Thank you! Your status has been recorded.', 'success');
+    setTimeout(() => {
+      closeStatusPanel();
+      showStatusFeedback('');
+      if (state.canManageData) {
+        syncIncidentsFromRemote();
+      }
+    }, 1800);
+  } catch (error) {
+    console.error('Unable to sync report with remote storage', error);
+    enqueuePendingSync(record);
+    schedulePendingRetryLoop();
+    showStatusFeedback(
+      'Update saved on this device but not yet synced. We will retry when the connection returns.',
+      'error'
+    );
+    elements.statusSubmit.disabled = false;
+    updateStatusSubmitState();
+  }
 }
 
 function notifyNewIncident(incident) {
@@ -750,12 +1112,187 @@ function notifyNewIncident(incident) {
   window.alert(message.trim());
 }
 
-function addIncident(record) {
-  state.incidents = [record, ...state.incidents].slice(0, MAX_INCIDENTS_STORED);
-  saveIncidentsToStorage();
-  syncIncidentLayer();
-  renderIncidentList();
-  notifyNewIncident(record);
+async function fetchRemoteIncidents() {
+  if (!useRemoteStorage() || !REMOTE_LIST_ENDPOINT) {
+    return [];
+  }
+  const endpoint = appendQueryParams(REMOTE_LIST_ENDPOINT, REMOTE_LIST_QUERY);
+  const requestInit = {
+    method: REMOTE_LIST_METHOD,
+    headers: buildRequestHeaders(STORAGE_CONFIG.listHeaders),
+  };
+  if (REMOTE_LIST_METHOD !== 'GET') {
+    const bodyPayload = buildRequestBody(REMOTE_LIST_BODY_CONFIG);
+    if (bodyPayload) {
+      requestInit.body = JSON.stringify(bodyPayload);
+    }
+  }
+  const response = await fetch(endpoint, requestInit);
+  if (!response.ok) {
+    throw new Error(`Remote fetch failed (${response.status})`);
+  }
+  if (response.status === 204) {
+    return [];
+  }
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (error) {
+    console.warn('Unable to parse remote incident payload', error);
+    return [];
+  }
+  const collection = resolveResponseCollection(payload);
+  if (!Array.isArray(collection)) {
+    console.warn('Remote incident payload is not an array');
+    return [];
+  }
+  return collection
+    .map((record) => {
+      if (transformIncoming) {
+        try {
+          return transformIncoming(record);
+        } catch (error) {
+          console.warn('transformIncoming error', error);
+          return null;
+        }
+      }
+      return record;
+    })
+    .filter(Boolean)
+    .map((record) => normalizeIncidentRecord(record))
+    .filter(Boolean);
+}
+
+async function pushIncidentToRemote(record) {
+  if (!useRemoteStorage() || !REMOTE_CREATE_ENDPOINT) {
+    return;
+  }
+  const endpoint = appendQueryParams(REMOTE_CREATE_ENDPOINT, REMOTE_CREATE_QUERY);
+  const payload =
+    transformOutgoing && isFunction(transformOutgoing)
+      ? transformOutgoing(record)
+      : record;
+  const requestInit = {
+    method: REMOTE_CREATE_METHOD,
+    headers: buildRequestHeaders(STORAGE_CONFIG.createHeaders),
+  };
+  if (REMOTE_CREATE_METHOD === 'GET') {
+    const urlWithQuery =
+      payload && typeof payload === 'object'
+        ? appendQueryParams(endpoint, payload)
+        : endpoint;
+    const response = await fetch(urlWithQuery, requestInit);
+    if (!response.ok) {
+      throw new Error(`Remote sync failed (${response.status})`);
+    }
+    return;
+  }
+  const bodyPayload =
+    buildRequestBody(REMOTE_CREATE_BODY_CONFIG, payload) || payload || record;
+  requestInit.body = JSON.stringify(bodyPayload);
+  const response = await fetch(endpoint, requestInit);
+  if (!response.ok) {
+    throw new Error(`Remote sync failed (${response.status})`);
+  }
+}
+
+async function flushPendingSyncQueue() {
+  if (!useRemoteStorage() || !pendingSyncQueue.length) {
+    return;
+  }
+  const stillPending = [];
+  for (const record of pendingSyncQueue) {
+    try {
+      await pushIncidentToRemote(record);
+      clearPendingSyncEntry(record.id);
+    } catch (error) {
+      console.warn('Unable to sync pending incident', error);
+      stillPending.push(record);
+    }
+  }
+  pendingSyncQueue = stillPending;
+  persistPendingSyncQueue();
+}
+
+function schedulePendingRetryLoop() {
+  if (!useRemoteStorage() || pendingRetryIntervalId) {
+    return;
+  }
+  if (!pendingSyncQueue.length && !REMOTE_RETRY_INTERVAL) {
+    return;
+  }
+  const interval = REMOTE_RETRY_INTERVAL > 0 ? REMOTE_RETRY_INTERVAL : 60000;
+  pendingRetryIntervalId = window.setInterval(() => {
+    flushPendingSyncQueue();
+  }, interval);
+}
+
+function stopPendingRetryLoop() {
+  if (pendingRetryIntervalId) {
+    window.clearInterval(pendingRetryIntervalId);
+    pendingRetryIntervalId = null;
+  }
+}
+
+async function syncIncidentsFromRemote({ initial = false } = {}) {
+  if (!useRemoteStorage() || remoteSyncInFlight) {
+    return;
+  }
+  remoteSyncInFlight = true;
+  try {
+    const remoteRecords = await fetchRemoteIncidents();
+    const { added } = upsertIncidents(remoteRecords, {
+      triggerNotifications: !initial,
+    });
+    if (initial) {
+      state.remoteInitialSyncComplete = true;
+    }
+    if (!initial && added.length && !state.canManageData) {
+      console.info('New incidents downloaded but notifications suppressed for user role.');
+    }
+  } catch (error) {
+    console.warn('Remote sync failed', error);
+  } finally {
+    remoteSyncInFlight = false;
+  }
+}
+
+function startRemotePolling() {
+  if (!useRemoteStorage() || remoteSyncIntervalId) {
+    return;
+  }
+  if (!state.canManageData && !REMOTE_SHOULD_POLL_FOR_USERS) {
+    return;
+  }
+  if (!Number.isFinite(REMOTE_POLL_INTERVAL) || REMOTE_POLL_INTERVAL <= 0) {
+    return;
+  }
+  remoteSyncIntervalId = window.setInterval(() => {
+    syncIncidentsFromRemote();
+  }, REMOTE_POLL_INTERVAL);
+}
+
+function stopRemotePolling() {
+  if (remoteSyncIntervalId) {
+    window.clearInterval(remoteSyncIntervalId);
+    remoteSyncIntervalId = null;
+  }
+}
+
+function addIncident(record, options = {}) {
+  return upsertIncidents([record], options);
+}
+
+async function initializeRemoteSync() {
+  if (!useRemoteStorage()) {
+    return;
+  }
+  await syncIncidentsFromRemote({ initial: true });
+  if (pendingSyncQueue.length) {
+    await flushPendingSyncQueue();
+  }
+  startRemotePolling();
+  schedulePendingRetryLoop();
 }
 
 function applySettings(baseLayers) {
@@ -803,6 +1340,16 @@ function setRoleContext(roleKey, baseLayers, groupLayer) {
   }
   loadSettings(profile.role);
   applySettings(baseLayers);
+  if (state.remoteSyncEnabled) {
+    if (profile.canManageData || REMOTE_SHOULD_POLL_FOR_USERS) {
+      startRemotePolling();
+    } else {
+      stopRemotePolling();
+    }
+    if (profile.canManageData && state.remoteInitialSyncComplete) {
+      syncIncidentsFromRemote();
+    }
+  }
 }
 
 function drawRoute(routeGeoJson) {
@@ -1075,6 +1622,8 @@ window.addEventListener('load', () => {
     elements.appShell?.getAttribute('data-role') || 'admin';
   setRoleContext(initialRole, baseLayers, floodGroup);
 
+  initializeRemoteSync();
+
   updateStatusSubmitState();
 
   elements.settingsToggle?.addEventListener('click', () => {
@@ -1162,6 +1711,29 @@ window.addEventListener('keydown', (event) => {
     !elements.statusPanel.classList.contains('app-hidden')
   ) {
     closeStatusPanel();
+  }
+});
+
+window.addEventListener('online', () => {
+  if (!useRemoteStorage()) {
+    return;
+  }
+  flushPendingSyncQueue();
+  syncIncidentsFromRemote();
+});
+
+window.addEventListener('beforeunload', () => {
+  stopRemotePolling();
+  stopPendingRetryLoop();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !useRemoteStorage()) {
+    return;
+  }
+  syncIncidentsFromRemote();
+  if (pendingSyncQueue.length) {
+    flushPendingSyncQueue();
   }
 });
 

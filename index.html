@@ -202,6 +202,20 @@
                 }
             };
         </script>
+        <script>
+            window.PROJECT_UWAN_STORAGE = window.PROJECT_UWAN_STORAGE || {
+                mode: 'rest',
+                endpoint: 'https://egbwrmyjhinpaamrybbb.supabase.co/rest/v1/incidents',
+                headers: {
+                    apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnYndybXlqaGlucGFhbXJ5YmJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2NzY2NjMsImV4cCI6MjA3ODI1MjY2M30.GlJUiyj2HDLmNCjZBapD-jQqT7UIaSvSOhM_BqEQSms',
+                    Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnYndybXlqaGlucGFhbXJ5YmJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2NzY2NjMsImV4cCI6MjA3ODI1MjY2M30.GlJUiyj2HDLmNCjZBapD-jQqT7UIaSvSOhM_BqEQSms',
+                    Prefer: 'return=representation'
+                },
+                pollInterval: 15000,
+                retryInterval: 45000,
+                pollForUsers: true
+            };
+        </script>
         <script type="module" src="./resources/app-ui.js"></script>
     </body>
 </html>

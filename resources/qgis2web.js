@@ -4,15 +4,12 @@ var map = new ol.Map({
     renderer: 'canvas',
     layers: layersList,
     view: new ol.View({
-         maxZoom: 28, minZoom: 1, projection: new ol.proj.Projection({
-            code: 'EPSG:32651',
-            //extent: [-20026376.390000, -20048966.100000, 20026376.390000, 20048966.100000],
-            units: 'm'})
+         maxZoom: 28, minZoom: 1
     })
 });
 
 //initial view - epsg:3857 coordinates if not "Match project CRS"
-map.getView().fit([362873.712903, 1909147.838864, 377845.203615, 1919546.501524], map.getSize());
+map.getView().fit([13551487.400815, 1971213.433515, 13557243.819778, 1975586.983733], map.getSize());
 
 ////small screen definition
     var hasTouchScreen = map.getViewport().classList.contains('ol-touch');
@@ -530,7 +527,17 @@ var bottomRightContainerDiv = document.getElementById('bottom-right-container')
 
 
 //layerswitcher
-// layer switcher removed
+
+var layerSwitcher = new ol.control.LayerSwitcher({
+    tipLabel: "Layers",
+    target: 'top-right-container'
+});
+map.addControl(layerSwitcher);
+    
+
+
+
+
 
 //attribution
 var bottomAttribution = new ol.control.Attribution({

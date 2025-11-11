@@ -7,215 +7,1234 @@
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <link rel="stylesheet" href="./resources/ol.css">
-        <link rel="stylesheet" href="./resources/fontawesome-all.min.css">
-        <link href="./resources/photon-geocoder-autocomplete.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="resources/fontawesome-all.min.css">
+        <link href="resources/photon-geocoder-autocomplete.min.css" rel="stylesheet">
         <link rel="stylesheet" href="./resources/ol-layerswitcher.css">
         <link rel="stylesheet" href="./resources/qgis2web.css">
-        <link rel="stylesheet" href="./resources/app-ui.css">
         <style>
-        html, body {
-            background-color: #ffffff;
+        :root {
+            color-scheme: light;
+            --bg: #ffffff;
+            --accent: #005cbb;
+            --surface: #f6f8fb;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
         }
-        .ol-control > * {
-            background-color: #f8f8f8!important;
-            color: #444444!important;
-            border-radius: 0px;
-        }
-        .ol-attribution a, .gcd-gl-input::placeholder, .search-layer-input-search::placeholder {
-            color: #444444!important;
-        }
-        .search-layer-input-search {
-            background-color: #f8f8f8!important;
-        }
-        .ol-control > *:focus, .ol-control >*:hover {
-            background-color: rgba(248, 248, 248, 0.7)!important;
-        } 
-        .ol-control {
-            background-color: rgba(255,255,255,.4) !important;
-            padding: 2px !important;
-        } 
-        </style>
 
-        <style>
-        html, body, #map {
-            width: 100%;
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        html, body {
             height: 100%;
-            padding: 0;
+            margin: 0;
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .app-header, footer {
+            padding: 1.25rem clamp(1.25rem, 4vw, 3rem);
+            background: var(--surface);
+            box-shadow: var(--shadow);
+        }
+
+        .app-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .brand {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+            font-size: clamp(1.1rem, 1.5vw + 1rem, 1.75rem);
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .brand-title {
+            font-size: inherit;
+        }
+
+        .brand-subheading {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .brand-subheading h2 {
+            margin: 0;
+            font-size: clamp(1.2rem, 1vw + 1.1rem, 1.5rem);
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .hero-action {
+            padding: 0.65rem 1.35rem;
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            align-self: flex-start;
+        }
+
+        .hero-action.ghost {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid rgba(0, 92, 187, 0.25);
+        }
+
+        .hero-action:focus-visible {
+            outline: 3px solid rgba(0, 92, 187, 0.35);
+            outline-offset: 2px;
+        }
+
+        .hero-action:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        main {
+            display: block;
+            flex: 1;
+            min-height: 0;
+            padding: clamp(1rem, 3vw, 2.5rem);
+        }
+
+        .map-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 1rem;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            min-height: clamp(320px, 65vh, 720px);
+        }
+
+        .map-header {
+            padding: 1rem 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+        }
+
+        .map-header h1 {
+            font-size: clamp(1.1rem, 1.8vw + 0.6rem, 1.9rem);
             margin: 0;
         }
+
+        .map-header p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .map-body {
+            flex: 1;
+            position: relative;
+            min-height: 300px;
+        }
+
+        #map {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .panel-group {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .panel {
+            background: #fff;
+            border-radius: 1rem;
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+        }
+
+        .panel h2 {
+            margin: 0 0 0.5rem;
+            font-size: 1.05rem;
+        }
+
+        .panel p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .layer-list {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .layer-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: border 0.2s ease, transform 0.2s ease;
+        }
+
+        .panel h3 {
+            margin: 0 0 0.75rem;
+            font-size: 0.95rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .layer-item:hover {
+            border-color: rgba(0, 92, 187, 0.35);
+            transform: translateX(2px);
+        }
+
+        .layer-item span {
+            font-weight: 500;
+        }
+
+        .layer-item small {
+            color: var(--muted);
+        }
+
+        footer {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .footer-links a {
+            color: var(--muted);
+        }
+
+        .footer-links a:hover,
+        .footer-links a:focus-visible {
+            color: var(--accent);
+        }
+
+        .status-grid {
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        }
+
+        .status-card {
+            display: grid;
+            gap: 0.35rem;
+            padding: 0.85rem 1rem;
+            border-radius: 1rem;
+            background: rgba(0, 92, 187, 0.08);
+        }
+
+        .status-card strong {
+            font-size: 1.15rem;
+        }
+
+        .status-card span {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .quick-links {
+            display: grid;
+            gap: 0.65rem;
+        }
+
+        .quick-links a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(0, 92, 187, 0.1);
+            color: var(--accent);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        /* Map control customisations */
+        .ol-control > * {
+            background-color: #f8f8f8 !important;
+            color: #444444 !important;
+            border-radius: 0;
+        }
+
+        .ol-attribution a,
+        .gcd-gl-input::placeholder,
+        .search-layer-input-search::placeholder {
+            color: #444444 !important;
+        }
+
+        .search-layer-input-search {
+            background-color: #f8f8f8 !important;
+        }
+
+        .ol-control > *:focus,
+        .ol-control > *:hover {
+            background-color: rgba(248, 248, 248, 0.7) !important;
+        }
+
+        .ol-control {
+            background-color: rgba(255, 255, 255, 0.4) !important;
+            padding: 2px !important;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            .info-sidebar {
+                width: min(360px, 100%);
+            }
+        }
+
+        @media (max-width: 960px) {
+            main {
+                padding: clamp(1rem, 4vw, 1.5rem);
+            }
+
+            .map-wrapper {
+                min-height: clamp(320px, 55vh, 640px);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .app-header, footer {
+                padding: 1rem clamp(1rem, 6vw, 1.5rem);
+            }
+
+            main {
+                padding: clamp(0.75rem, 5vw, 1.25rem);
+            }
+
+            .map-header {
+                align-items: flex-start;
+            }
+
+            .map-header p {
+                font-size: 0.9rem;
+            }
+
+            .info-sidebar {
+                padding: clamp(0.85rem, 6vw, 1.5rem);
+            }
+
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @keyframes reportPulse {
+            0% {
+                opacity: 0.8;
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+            }
+            70% {
+                opacity: 0.4;
+                box-shadow: 0 0 0 18px rgba(16, 185, 129, 0);
+            }
+            100% {
+                opacity: 0;
+                box-shadow: 0 0 0 24px rgba(16, 185, 129, 0);
+            }
+        }
+
+        /* Modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: clamp(1.25rem, 5vw, 2.5rem);
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(3px);
+            transition: opacity 0.25s ease;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 900;
+        }
+
+        .modal-backdrop.is-visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            width: min(480px, 100%);
+            border-radius: 1rem;
+            background: #fff;
+            box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            max-height: min(90vh, 640px);
+            overflow: hidden;
+        }
+
+        .modal header {
+            padding: 1.25rem clamp(1.25rem, 4vw, 1.75rem);
+            border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .modal header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        .modal header button {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 1.3rem;
+            color: var(--muted);
+        }
+
+        .modal header button:hover,
+        .modal header button:focus-visible {
+            color: var(--accent);
+        }
+
+        .modal form {
+            display: grid;
+            gap: 1rem;
+            padding: 1.25rem clamp(1.25rem, 4vw, 1.75rem);
+            overflow-y: auto;
+        }
+
+        .form-field {
+            display: grid;
+            gap: 0.4rem;
+        }
+
+        .form-field label {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .form-field small {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .form-field input,
+        .form-field select,
+        .form-field textarea {
+            width: 100%;
+            padding: 0.7rem 0.9rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            font: inherit;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .form-field input:focus-visible,
+        .form-field select:focus-visible,
+        .form-field textarea:focus-visible {
+            border-color: rgba(0, 92, 187, 0.6);
+            box-shadow: 0 0 0 3px rgba(0, 92, 187, 0.2);
+            outline: none;
+        }
+
+        .form-feedback {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--accent);
+            min-height: 1.2rem;
+        }
+
+        .report-callout {
+            position: relative;
+            display: grid;
+            gap: 0.4rem;
+            min-width: 220px;
+            padding: 0.85rem 1rem;
+            border-radius: 1rem;
+            background: rgba(15, 23, 42, 0.9);
+            color: #f8fafc;
+            box-shadow: var(--shadow);
+        }
+
+        .report-callout::after {
+            content: "";
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 10px 10px 0 10px;
+            border-style: solid;
+            border-color: rgba(15, 23, 42, 0.9) transparent transparent transparent;
+        }
+
+        .report-callout__status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: #fff;
+        }
+
+        .report-callout__status::before {
+            content: "";
+            display: block;
+            width: 6px;
+            height: 18px;
+            border-radius: 999px;
+            background: var(--status-highlight, #10b981);
+        }
+
+        .report-callout__icon {
+            font-size: 1.15rem;
+        }
+
+        .report-callout__detail {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #e2e8f0;
+        }
+
+        .report-callout__meta {
+            margin: 0;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(226, 232, 240, 0.75);
+        }
+
+        .report-tooltip {
+            display: none;
+            pointer-events: none;
+            padding: 0.55rem 0.8rem;
+            border-radius: 0.75rem;
+            background: rgba(15, 23, 42, 0.9);
+            color: #f8fafc;
+            box-shadow: var(--shadow);
+            font-size: 0.85rem;
+        }
+
+        .report-tooltip__status {
+            margin: 0;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .report-tooltip__detail {
+            margin: 0.2rem 0 0;
+            font-size: 0.8rem;
+            color: #cbd5f5;
+        }
+
+        .report-tooltip__timestamp {
+            margin: 0.3rem 0 0;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(226, 232, 240, 0.7);
+        }
+
+        .geo-readout {
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .geo-readout .coordinate-group {
+            display: grid;
+            gap: 0.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        }
+
+        .modal footer {
+            padding: 1.25rem clamp(1.25rem, 4vw, 1.75rem);
+            border-top: 1px solid rgba(15, 23, 42, 0.08);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: flex-end;
+        }
+
+        .modal footer button {
+            padding: 0.65rem 1.4rem;
+            border-radius: 999px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .modal footer .secondary {
+            background: rgba(0, 92, 187, 0.08);
+            color: var(--accent);
+        }
+
+        .modal footer .primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .geo-status {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
         </style>
-        <title>Project Uwan – Flood Intelligence Dashboard</title>
+        <title></title>
     </head>
-    <body class="with-data-pane">
-        <div id="map">
-            <div id="popup" class="ol-popup">
-                <a href="#" id="popup-closer" class="ol-popup-closer"></a>
-                <div id="popup-content"></div>
+    <body>
+        <div class="app-header">
+            <div class="brand">
+            
+                <span class="brand-title">TagMe</span>
+                
+                <button class="hero-action ghost" type="button" id="openStatusModal">Report my Status</button>
             </div>
         </div>
-        <div id="app-shell" data-role="admin">
-            <header class="app-toolbar">
-                <div class="app-brand">
-                    <span class="app-logo" aria-hidden="true">&#128752;</span>
-                    <div class="app-title">
-                        <strong>Project Uwan</strong>
-                        <small>Flood Intelligence Dashboard</small>
-                    </div>
-                </div>
-                <div class="app-toolbar-actions">
-                    <button id="settings-toggle" class="app-button" type="button">Settings</button>
-                    <button id="status-toggle" class="app-button app-button-primary app-user-only" type="button">Report Status</button>
-                    <a class="app-button" href="./User.html" role="button">User Portal</a>
-                    <div class="app-user-menu">
-                        <span id="current-role" class="app-role-label"></span>
-                    </div>
-                </div>
-            </header>
-            <aside id="settings-panel" class="app-panel" role="dialog" aria-labelledby="settings-title">
-                <div class="app-panel-header">
-                    <h2 id="settings-title">Map Settings</h2>
-                    <button class="app-button app-button-ghost" data-close-panel="settings" type="button">Close</button>
-                </div>
-                <div class="app-panel-body">
-                    <section class="app-section">
-                        <h3>Base Map</h3>
-                        <p class="app-section-subtitle">Switch the background tiles used on the map.</p>
-                        <select id="base-layer-select" class="app-select" aria-label="Select base map layer"></select>
-                    </section>
-                    <section class="app-section">
-                        <h3>Interaction</h3>
-                        <label class="app-toggle">
-                            <input id="hover-popups-toggle" type="checkbox">
-                            <span>Enable hover popups</span>
-                        </label>
-                        <label class="app-toggle">
-                            <input id="highlight-toggle" type="checkbox">
-                            <span>Highlight features on hover</span>
-                        </label>
-                    </section>
-                    <section class="app-section">
-                        <h3>Display</h3>
-                        <label class="app-toggle">
-                            <input id="legend-toggle" type="checkbox" checked>
-                            <span>Show legend</span>
-                        </label>
-                    </section>
-                </div>
-            </aside>
-            <aside id="data-panel" class="app-data-pane" aria-labelledby="data-title">
-                <header class="app-data-pane-header">
-                    <h2 id="data-title">Incoming Status Reports</h2>
-                    <p class="app-data-pane-subtitle">Latest field updates submitted from the mobile app.</p>
-                </header>
-                <div class="app-data-pane-body">
-                    <div id="incident-list" class="app-incident-list" role="list" aria-live="polite"></div>
-                </div>
-            </aside>
-            <div id="status-panel" class="app-modal app-hidden" role="dialog" aria-labelledby="status-title" aria-modal="true">
-                <div class="status-card">
-                    <header class="status-card-header">
-                        <h2 id="status-title">Report Your Status</h2>
-                        <button class="app-button app-button-ghost" id="status-close" type="button" aria-label="Close status dialog">Close</button>
-                    </header>
-                    <div class="status-card-body">
-                        <p class="status-intro">Help responders understand your situation by sharing a quick update.</p>
-                        <form id="status-form" class="status-form" autocomplete="off" novalidate>
-                            <input type="hidden" id="status-type" name="status">
-                            <section class="status-section">
-                                <h3>Status</h3>
-                                <p class="status-section-subtitle">Select the option that best describes what you need right now.</p>
-                                <div class="status-options" role="group" aria-label="Choose your current status">
-                                    <button type="button" class="status-option tone-emergency" data-status-option="need_help" aria-pressed="false">
-                                        <span class="status-option-title">Need Help</span>
-                                        <span class="status-option-desc">Immediate assistance required</span>
-                                    </button>
-                                    <button type="button" class="status-option tone-medical" data-status-option="need_medical" aria-pressed="false">
-                                        <span class="status-option-title">Need Medical Attention</span>
-                                        <span class="status-option-desc">Injury or health emergency</span>
-                                    </button>
-                                    <button type="button" class="status-option tone-evac" data-status-option="need_evacuation" aria-pressed="false">
-                                        <span class="status-option-title">Need Evacuation</span>
-                                        <span class="status-option-desc">Unable to stay in current location</span>
-                                    </button>
-                                    <button type="button" class="status-option tone-safe" data-status-option="safe" aria-pressed="false">
-                                        <span class="status-option-title">Safe</span>
-                                        <span class="status-option-desc">No assistance needed</span>
-                                    </button>
-                                </div>
-                                <p class="status-choice-hint">Tap a status above to continue.</p>
-                            </section>
-                            <section class="status-section">
-                                <h3>Reporter Details</h3>
-                                <p class="status-section-subtitle">Let us know who’s reporting and how many people are affected.</p>
-                                <label class="status-field">
-                                    <span>Your name</span>
-                                    <input id="status-name" name="name" type="text" autocomplete="name" required placeholder="Juan Dela Cruz">
-                                </label>
-                                <label class="status-field">
-                                    <span>Households / Occupants</span>
-                                    <input id="status-households" name="households" type="number" inputmode="numeric" min="1" step="1" required placeholder="Number of people or households">
-                                </label>
-                            </section>
-                            <section class="status-section">
-                                <h3>Location</h3>
-                                <p class="status-section-subtitle">We detect your GPS position automatically. Add helpful notes if you can.</p>
-                                <div id="status-location" class="status-location" role="status" aria-live="polite">Detecting your location…</div>
-                                <label class="status-field">
-                                    <span>Location notes (optional)</span>
-                                    <textarea id="status-address" name="address" rows="2" placeholder="Nearest landmark, barangay, or extra guidance"></textarea>
-                                </label>
-                            </section>
-                            <section class="status-section">
-                                <h3>Additional Details (optional)</h3>
-                                <label class="status-field">
-                                    <span>Notes</span>
-                                    <textarea id="status-notes" name="notes" rows="3" placeholder="Urgent needs, mobility concerns, contact info, etc."></textarea>
-                                </label>
-                            </section>
-                            <div class="status-form-footer">
-                                <button id="status-submit" class="app-button app-button-primary" type="submit" disabled>Submit update</button>
-                                <div id="status-feedback" class="status-feedback" role="alert" aria-live="assertive"></div>
+        <main>
+            <section class="map-section">
+                <div class="map-wrapper">
+                    <div class="map-body">
+                        <div id="map">
+                            <div id="popup" class="ol-popup">
+                                <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+                                <div id="popup-content"></div>
                             </div>
-                        </form>
+                        </div>
                     </div>
                 </div>
+            </section>
+        </main>
+        <div class="modal-backdrop" id="statusModal" aria-hidden="true">
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="statusModalTitle" aria-describedby="statusModalDescription">
+                <header>
+                    <button type="button" class="modal-close" aria-label="Close report form">&times;</button>
+                </header>
+                <form id="statusForm">
+                    <p id="statusModalDescription" class="geo-status">Share your current status and location so responders can reach you quickly.</p>
+                    <div class="form-field">
+                        <label for="reporterName">Name <small>(optional)</small></label>
+                        <input id="reporterName" name="reporterName" type="text" placeholder="Enter your name">
+                    </div>
+                    <div class="form-field geo-readout">
+                        <label>Current Location</label>
+                        <div class="coordinate-group">
+                            <input id="latitude" name="latitude" type="text" placeholder="Latitude" readonly>
+                            <input id="longitude" name="longitude" type="text" placeholder="Longitude" readonly>
+                        </div>
+                        <div class="geo-status" id="geoStatus">Attempting to detect your location…</div>
+                    </div>
+                    <div class="form-field">
+                        <label for="statusSelect">Status</label>
+                        <select id="statusSelect" name="statusSelect" required>
+                            <option value="" disabled selected>Select your status</option>
+                            <option value="safe">Safe</option>
+                            <option value="need-assistance">Need Assistance</option>
+                            <option value="urgent">Urgent / Emergency</option>
+                            <option value="unknown">Unknown</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label for="statusMessage">Message</label>
+                        <textarea id="statusMessage" name="statusMessage" rows="4" placeholder="Provide any details responders should know…" required></textarea>
+                    </div>
+                    <div class="form-feedback" id="statusFeedback" aria-live="polite"></div>
+                </form>
+                <footer>
+                    <button type="button" class="secondary modal-close">Cancel</button>
+                    <button type="submit" form="statusForm" class="primary">Submit Report</button>
+                </footer>
             </div>
-            <div id="navigation-instruction" class="app-nav-toast app-hidden" role="status" aria-live="polite"></div>
         </div>
-        <script src="./resources/qgis2web_expressions.js"></script>
-        <script src="./resources/proj4.js"></script>
-        <script>proj4.defs('EPSG:32651','+proj=utm +zone=51 +datum=WGS84 +units=m +no_defs');</script>
+        <footer>
+            <div>© <span id="year"></span> TagMe. All rights reserved.</div>
+            <nav class="footer-links">
+                <a href="#" aria-label="View privacy policy">Privacy</a>
+                <a href="#" aria-label="View terms of service">Terms</a>
+                <a href="#" aria-label="Get support">Support</a>
+            </nav>
+        </footer>
+        <script src="resources/qgis2web_expressions.js"></script>
         <script src="./resources/functions.js"></script>
         <script src="./resources/ol.js"></script>
         <script src="./resources/ol-layerswitcher.js"></script>
-        <script src="./resources/photon-geocoder-autocomplete.min.js"></script>
+        <script src="resources/photon-geocoder-autocomplete.min.js"></script>
         <script src="./layers/layers.js" type="text/javascript"></script> 
         <script src="./resources/Autolinker.min.js"></script>
         <script src="./resources/qgis2web.js"></script>
         <script>
-            window.PROJECT_UWAN_ORS = window.PROJECT_UWAN_ORS || {
-                apiKey: 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImRiOTExNzM3NGE4NzQxNTE4NWFlMTVkMjQzOTAxMjU3IiwiaCI6Im11cm11cjY0In0=',
-                profile: 'driving-car',
-                responder: {
-                    useGeolocation: false,
-                    location: { lat: 17.304430, lng: 121.778607 }
+        (function () {
+            // Google Apps Script Web App endpoint for logging status reports.
+            const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRq7LkFDgbj30RijgJv42L2aLd4oTp_pSSSFDnNq7z7aNx-ktAB-8TGKLeHdgvH9BLaw/exec";
+
+            const STORAGE_KEY = "tagme-status-reports";
+
+            function readStoredReports() {
+                if (typeof window === "undefined" || !("localStorage" in window)) {
+                    return [];
+                }
+                try {
+                    const raw = window.localStorage.getItem(STORAGE_KEY);
+                    if (!raw) {
+                        return [];
+                    }
+                    const parsed = JSON.parse(raw);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (error) {
+                    console.warn("Unable to read stored reports:", error);
+                    return [];
+                }
+            }
+
+            function writeStoredReports(reports) {
+                if (typeof window === "undefined" || !("localStorage" in window)) {
+                    return;
+                }
+                try {
+                    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+                } catch (error) {
+                    console.warn("Unable to persist reports:", error);
+                }
+            }
+
+            function persistReportEntry(entry) {
+                if (!entry) {
+                    return;
+                }
+                const reports = readStoredReports();
+                if (entry.timestamp && reports.some(function (item) { return item.timestamp === entry.timestamp; })) {
+                    return;
+                }
+                reports.push(entry);
+                if (reports.length > 250) {
+                    reports.splice(0, reports.length - 250);
+                }
+                writeStoredReports(reports);
+            }
+
+            function formatTimestamp(value) {
+                if (!value) {
+                    return "";
+                }
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return value;
+                }
+                return `${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })} • ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
+            }
+
+            function hydrateStoredReports() {
+                const storedReports = readStoredReports();
+                storedReports.forEach(function (entry) {
+                    const lat = typeof entry.latitude === "string" ? parseFloat(entry.latitude) : entry.latitude;
+                    const lon = typeof entry.longitude === "string" ? parseFloat(entry.longitude) : entry.longitude;
+                    const statusKey = entry.statusSelect || entry.status || "unknown";
+                    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+                        return;
+                    }
+                    focusOnReport(
+                        lon,
+                        lat,
+                        statusKey,
+                        entry.statusMessage || entry.message || "",
+                        entry.reporterName || "",
+                        {
+                            timestamp: entry.timestamp,
+                            flyTo: false,
+                            showCallout: false,
+                            showPulse: false
+                        }
+                    );
+                });
+            }
+
+            const now = new Date();
+            const yearEl = document.getElementById("year");
+            if (yearEl) {
+                yearEl.textContent = String(now.getFullYear());
+            }
+
+            const reportBtn = document.getElementById("openStatusModal");
+            const modalBackdrop = document.getElementById("statusModal");
+            const closeButtons = modalBackdrop ? modalBackdrop.querySelectorAll(".modal-close") : [];
+            const form = document.getElementById("statusForm");
+            const geoStatusEl = document.getElementById("geoStatus");
+            const latitudeEl = document.getElementById("latitude");
+            const longitudeEl = document.getElementById("longitude");
+            const feedbackEl = document.getElementById("statusFeedback");
+            const statusSource = new ol.source.Vector();
+            const STATUS_STYLES = {
+                "safe": {
+                    label: "Safe",
+                    color: "#10b981",
+                    emoji: "🛡️"
+                },
+                "need-assistance": {
+                    label: "Needs Assistance",
+                    color: "#f59e0b",
+                    emoji: "⚠️"
+                },
+                "urgent": {
+                    label: "Urgent",
+                    color: "#ef4444",
+                    emoji: "🚨"
+                },
+                "unknown": {
+                    label: "Unknown",
+                    color: "#6366f1",
+                    emoji: "❔"
                 }
             };
+            const statusStyleCache = {};
+            const statusLayer = new ol.layer.Vector({
+                source: statusSource,
+                style: function (feature) {
+                    const statusKey = feature.get("status") || "unknown";
+                    if (!statusStyleCache[statusKey]) {
+                        const styleConfig = STATUS_STYLES[statusKey] || STATUS_STYLES.unknown;
+                        statusStyleCache[statusKey] = new ol.style.Style({
+                            image: new ol.style.Circle({
+                                radius: 11,
+                                fill: new ol.style.Fill({ color: styleConfig.color }),
+                                stroke: new ol.style.Stroke({ color: "#ffffff", width: 2 })
+                            })
+                        });
+                    }
+                    return statusStyleCache[statusKey];
+                }
+            });
+            let tooltipOverlay = null;
+            let tooltipElement = null;
+            if (window.map) {
+                statusLayer.setZIndex(1000);
+                map.addLayer(statusLayer);
+
+                const mapElement = document.getElementById("map");
+                tooltipElement = document.createElement("div");
+                tooltipElement.className = "report-tooltip";
+                if (mapElement) {
+                    mapElement.appendChild(tooltipElement);
+                }
+                tooltipOverlay = new ol.Overlay({
+                    element: tooltipElement,
+                    offset: [0, -18],
+                    positioning: "bottom-center",
+                    stopEvent: false
+                });
+                map.addOverlay(tooltipOverlay);
+
+                const hideTooltip = function () {
+                    if (tooltipElement) {
+                        tooltipElement.style.display = "none";
+                        tooltipElement.textContent = "";
+                    }
+                    if (tooltipOverlay) {
+                        tooltipOverlay.setPosition(undefined);
+                    }
+                };
+
+                const populateTooltip = function (feature) {
+                    if (!tooltipElement) {
+                        return;
+                    }
+                    tooltipElement.innerHTML = "";
+                    const statusKey = feature.get("status") || "unknown";
+                    const config = STATUS_STYLES[statusKey] || STATUS_STYLES.unknown;
+
+                    const statusRow = document.createElement("div");
+                    statusRow.className = "report-tooltip__status";
+                    statusRow.textContent = `${config.emoji} ${config.label}`;
+                    tooltipElement.appendChild(statusRow);
+
+                    const name = feature.get("reporterName");
+                    if (name) {
+                        const nameRow = document.createElement("div");
+                        nameRow.className = "report-tooltip__detail";
+                        nameRow.textContent = name;
+                        tooltipElement.appendChild(nameRow);
+                    }
+
+                    const detail = feature.get("message");
+                    if (detail) {
+                        const detailRow = document.createElement("div");
+                        detailRow.className = "report-tooltip__detail";
+                        detailRow.textContent = detail.length > 140 ? `${detail.slice(0, 137)}…` : detail;
+                        tooltipElement.appendChild(detailRow);
+                    }
+
+                    const timestamp = feature.get("timestamp");
+                    if (timestamp) {
+                        const timeRow = document.createElement("div");
+                        timeRow.className = "report-tooltip__timestamp";
+                        timeRow.textContent = formatTimestamp(timestamp);
+                        tooltipElement.appendChild(timeRow);
+                    }
+                };
+
+                map.on("pointermove", function (event) {
+                    if (event.dragging) {
+                        hideTooltip();
+                        return;
+                    }
+                    const feature = map.forEachFeatureAtPixel(event.pixel, function (candidate, layer) {
+                        return layer === statusLayer ? candidate : undefined;
+                    });
+                    if (feature && tooltipElement && tooltipOverlay) {
+                        populateTooltip(feature);
+                        tooltipElement.style.display = "block";
+                        tooltipOverlay.setPosition(feature.getGeometry().getCoordinates());
+                    } else {
+                        hideTooltip();
+                    }
+                });
+
+                map.getViewport().addEventListener("mouseleave", hideTooltip);
+                hydrateStoredReports();
+            }
+            let previousFocus = null;
+
+            function setGeoStatus(message, isError) {
+                if (!geoStatusEl) return;
+                geoStatusEl.textContent = message;
+                geoStatusEl.style.color = isError ? "#b91c1c" : "var(--muted)";
+            }
+
+            function clearGeoFields() {
+                if (latitudeEl) latitudeEl.value = "";
+                if (longitudeEl) longitudeEl.value = "";
+            }
+
+            function setFeedback(message, isError) {
+                if (!feedbackEl) return;
+                feedbackEl.textContent = message || "";
+                feedbackEl.style.color = isError ? "#b91c1c" : "var(--accent)";
+            }
+
+            function requestGeolocation() {
+                if (!navigator.geolocation) {
+                    setGeoStatus("Geolocation is not supported on this device. Please enter details manually.", true);
+                    clearGeoFields();
+                    return;
+                }
+
+                setGeoStatus("Attempting to detect your location…", false);
+
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        if (latitudeEl) latitudeEl.value = position.coords.latitude.toFixed(6);
+                        if (longitudeEl) longitudeEl.value = position.coords.longitude.toFixed(6);
+                        setGeoStatus("Location detected. Review before submitting.", false);
+                    },
+                    function (error) {
+                        const messages = {
+                            1: "Permission denied. Location unavailable.",
+                            2: "Position unavailable. Try again later.",
+                            3: "Location request timed out."
+                        };
+                        setGeoStatus(messages[error.code] || "Unable to detect your location.", true);
+                        clearGeoFields();
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 300000
+                    }
+                );
+            }
+
+            function toggleModal(show) {
+                if (!modalBackdrop) return;
+                if (show) {
+                    modalBackdrop.classList.add("is-visible");
+                    modalBackdrop.setAttribute("aria-hidden", "false");
+                    document.body.style.overflow = "hidden";
+                } else {
+                    modalBackdrop.classList.remove("is-visible");
+                    modalBackdrop.setAttribute("aria-hidden", "true");
+                    document.body.style.overflow = "";
+                }
+            }
+
+            function openModal() {
+                if (!modalBackdrop) return;
+                previousFocus = document.activeElement;
+                toggleModal(true);
+                requestGeolocation();
+                const nameInput = document.getElementById("reporterName");
+                window.setTimeout(function () {
+                    nameInput && nameInput.focus();
+                }, 100);
+                setFeedback("");
+            }
+
+            function closeModal() {
+                toggleModal(false);
+                if (form) {
+                    form.reset();
+                    setGeoStatus("Attempting to detect your location…", false);
+                    clearGeoFields();
+                }
+                setFeedback("");
+                if (previousFocus && previousFocus.focus) {
+                    previousFocus.focus();
+                }
+            }
+
+            function focusOnReport(lon, lat, statusKey, message, reporterName, options) {
+                const settings = Object.assign({
+                    flyTo: true,
+                    showCallout: true,
+                    showPulse: true,
+                    timestamp: new Date().toISOString()
+                }, options || {});
+
+                if (!window.map || !Number.isFinite(lon) || !Number.isFinite(lat)) {
+                    return;
+                }
+
+                const styleConfig = STATUS_STYLES[statusKey] || STATUS_STYLES.unknown;
+                const coordinate = ol.proj.fromLonLat([lon, lat]);
+                let feature = statusSource.getFeatures().find(function (candidate) {
+                    return candidate.get("timestamp") === settings.timestamp;
+                });
+
+                if (feature) {
+                    feature.setGeometry(new ol.geom.Point(coordinate));
+                } else {
+                    feature = new ol.Feature({
+                        geometry: new ol.geom.Point(coordinate)
+                    });
+                    statusSource.addFeature(feature);
+                }
+
+                feature.set("status", statusKey);
+                feature.set("reporterName", reporterName || "");
+                feature.set("message", message || "");
+                feature.set("timestamp", settings.timestamp);
+
+                if (settings.flyTo) {
+                    map.getView().animate({
+                        center: coordinate,
+                        zoom: Math.max(map.getView().getZoom() || 12, 15),
+                        duration: 800
+                    });
+                }
+
+                if (settings.showPulse) {
+                    const pulse = document.createElement("div");
+                    pulse.className = "report-pulse";
+                    pulse.style.cssText = `position:absolute;width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,0.8);background:transparent;transform:translate(-50%,-50%);pointer-events:none;animation:reportPulse 1.8s ease-out forwards;box-shadow:0 0 0 2px ${styleConfig.color}66;`;
+                    const overlay = new ol.Overlay({
+                        element: pulse,
+                        positioning: "center-center",
+                        position: coordinate
+                    });
+                    map.addOverlay(overlay);
+                    window.setTimeout(function () {
+                        map.removeOverlay(overlay);
+                    }, 1800);
+                }
+
+                if (settings.showCallout) {
+                    const callout = document.createElement("div");
+                    callout.className = "report-callout";
+                    callout.style.setProperty("--status-highlight", styleConfig.color);
+
+                    const statusRow = document.createElement("div");
+                    statusRow.className = "report-callout__status";
+                    statusRow.style.setProperty("--status-highlight", styleConfig.color);
+
+                    const iconSpan = document.createElement("span");
+                    iconSpan.className = "report-callout__icon";
+                    iconSpan.textContent = styleConfig.emoji;
+
+                    const labelSpan = document.createElement("span");
+                    labelSpan.textContent = styleConfig.label;
+
+                    statusRow.append(iconSpan, labelSpan);
+                    callout.append(statusRow);
+
+                    const cleanName = reporterName ? reporterName.trim() : "";
+                    if (cleanName) {
+                        const nameEl = document.createElement("p");
+                        nameEl.className = "report-callout__detail";
+                        nameEl.textContent = cleanName;
+                        callout.append(nameEl);
+                    }
+
+                    const cleanMessage = message ? message.trim() : "";
+                    if (cleanMessage) {
+                        const messageEl = document.createElement("p");
+                        messageEl.className = "report-callout__detail";
+                        messageEl.textContent = cleanMessage.length > 160 ? `${cleanMessage.slice(0, 157)}…` : cleanMessage;
+                        callout.append(messageEl);
+                    }
+
+                    const metaEl = document.createElement("p");
+                    metaEl.className = "report-callout__meta";
+                    metaEl.textContent = formatTimestamp(settings.timestamp);
+                    callout.append(metaEl);
+
+                    const calloutOverlay = new ol.Overlay({
+                        element: callout,
+                        positioning: "bottom-center",
+                        position: coordinate,
+                        offset: [0, -18],
+                        stopEvent: false
+                    });
+                    map.addOverlay(calloutOverlay);
+                    window.setTimeout(function () {
+                        map.removeOverlay(calloutOverlay);
+                    }, 6000);
+                }
+            }
+
+            reportBtn && reportBtn.addEventListener("click", openModal);
+
+            closeButtons.forEach(function (button) {
+                button.addEventListener("click", closeModal);
+            });
+
+            modalBackdrop && modalBackdrop.addEventListener("click", function (event) {
+                if (event.target === modalBackdrop) {
+                    closeModal();
+                }
+            });
+
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape" && modalBackdrop && modalBackdrop.classList.contains("is-visible")) {
+                    closeModal();
+                }
+            });
+
+            async function submitStatusReport(data) {
+                if (!GOOGLE_SCRIPT_URL) {
+                    console.warn("Google Script URL is not configured.");
+                    return { ok: false, message: "Reporting service URL is missing." };
+                }
+
+                try {
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "text/plain;charset=utf-8"
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Request failed with status ${response.status}`);
+                    }
+
+                    const result = await response.json().catch(function () {
+                        return { ok: true };
+                    });
+                    return { ok: true, result };
+                } catch (error) {
+                    console.warn("Standard submission failed, attempting no-cors fallback.", error);
+                    try {
+                        const fallbackResponse = await fetch(GOOGLE_SCRIPT_URL, {
+                            method: "POST",
+                            mode: "no-cors",
+                            headers: {
+                                "Content-Type": "text/plain;charset=utf-8"
+                            },
+                            body: JSON.stringify(data)
+                        });
+
+                        if (fallbackResponse && fallbackResponse.type === "opaque") {
+                            return { ok: true, result: { mode: "no-cors" } };
+                        }
+
+                        throw error;
+                    } catch (secondary) {
+                        console.error("Fallback submission failed:", secondary);
+                        return { ok: false, message: secondary.message || error.message || "Something went wrong." };
+                    }
+                }
+            }
+
+            form && form.addEventListener("submit", async function (event) {
+                event.preventDefault();
+                const formData = new FormData(form);
+                const payload = Object.fromEntries(formData.entries());
+                payload.timestamp = new Date().toISOString();
+                payload.source = "TagMe Web";
+
+                setFeedback("Submitting report…");
+                const status = await submitStatusReport(payload);
+
+                if (status.ok) {
+                    setFeedback("Thank you! Your status report has been submitted.");
+                    const lat = parseFloat(payload.latitude);
+                    const lon = parseFloat(payload.longitude);
+                    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+                        const entry = {
+                            timestamp: payload.timestamp,
+                            reporterName: payload.reporterName || "",
+                            latitude: lat,
+                            longitude: lon,
+                            statusSelect: payload.statusSelect,
+                            statusMessage: payload.statusMessage || ""
+                        };
+                        persistReportEntry(entry);
+                        focusOnReport(
+                            lon,
+                            lat,
+                            entry.statusSelect,
+                            entry.statusMessage,
+                            entry.reporterName,
+                            { timestamp: entry.timestamp }
+                        );
+                    } else {
+                        console.warn("No valid coordinates to map.");
+                    }
+                    window.setTimeout(function () {
+                        closeModal();
+                    }, 1500);
+                } else {
+                    setFeedback("Unable to submit your report at this time. " + (status.message || ""), true);
+                }
+            });
+        }());
         </script>
-        <script>
-            window.PROJECT_UWAN_STORAGE = window.PROJECT_UWAN_STORAGE || {
-                mode: 'rest',
-                endpoint: 'https://egbwrmyjhinpaamrybbb.supabase.co/rest/v1/incidents',
-                headers: {
-                    apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnYndybXlqaGlucGFhbXJ5YmJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2NzY2NjMsImV4cCI6MjA3ODI1MjY2M30.GlJUiyj2HDLmNCjZBapD-jQqT7UIaSvSOhM_BqEQSms',
-                    Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnYndybXlqaGlucGFhbXJ5YmJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2NzY2NjMsImV4cCI6MjA3ODI1MjY2M30.GlJUiyj2HDLmNCjZBapD-jQqT7UIaSvSOhM_BqEQSms',
-                    Prefer: 'return=representation'
-                },
-                pollInterval: 15000,
-                retryInterval: 45000,
-                pollForUsers: true
-            };
-        </script>
-        <script type="module" src="./resources/app-ui.js"></script>
     </body>
 </html>

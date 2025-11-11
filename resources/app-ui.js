@@ -16,6 +16,8 @@ const STATUS_TYPES = {
   NEED_MEDICAL: 'need_medical',
   NEED_EVACUATION: 'need_evacuation',
   SAFE: 'safe',
+  ONGOING_RESCUE: 'ongoing_rescue',
+  RESCUED: 'rescued',
 };
 
 const STATUS_LABELS = {
@@ -23,6 +25,8 @@ const STATUS_LABELS = {
   [STATUS_TYPES.NEED_MEDICAL]: 'Need Medical Attention',
   [STATUS_TYPES.NEED_EVACUATION]: 'Need Evacuation',
   [STATUS_TYPES.SAFE]: 'Safe',
+  [STATUS_TYPES.ONGOING_RESCUE]: 'On Going Rescue',
+  [STATUS_TYPES.RESCUED]: 'Rescued',
 };
 
 const STATUS_STYLES = {
@@ -30,6 +34,8 @@ const STATUS_STYLES = {
   [STATUS_TYPES.NEED_MEDICAL]: { fill: 'rgba(14,165,233,0.9)', stroke: '#0c4a6e', symbol: '+' },
   [STATUS_TYPES.NEED_EVACUATION]: { fill: 'rgba(249,115,22,0.9)', stroke: '#9a3412', symbol: '↗' },
   [STATUS_TYPES.SAFE]: { fill: 'rgba(34,197,94,0.9)', stroke: '#166534', symbol: '✓' },
+  [STATUS_TYPES.ONGOING_RESCUE]: { fill: 'rgba(59,130,246,0.9)', stroke: '#1d4ed8', symbol: '➜' },
+  [STATUS_TYPES.RESCUED]: { fill: 'rgba(16,185,129,0.9)', stroke: '#047857', symbol: '✓' },
 };
 
 const ORS_CONFIG = window.PROJECT_UWAN_ORS || {};
@@ -164,6 +170,18 @@ const REMOTE_LIST_QUERY = STORAGE_CONFIG.listQuery || null;
 const REMOTE_CREATE_QUERY = STORAGE_CONFIG.createQuery || null;
 const REMOTE_LIST_BODY_CONFIG = STORAGE_CONFIG.listBody || null;
 const REMOTE_CREATE_BODY_CONFIG = STORAGE_CONFIG.createBody || null;
+const REMOTE_UPDATE_ENDPOINT =
+  STORAGE_CONFIG.updateEndpoint || STORAGE_CONFIG.endpoint || REMOTE_CREATE_ENDPOINT || REMOTE_LIST_ENDPOINT;
+const REMOTE_UPDATE_METHOD = (STORAGE_CONFIG.updateMethod || 'PATCH').toUpperCase();
+const REMOTE_DELETE_ENDPOINT =
+  STORAGE_CONFIG.deleteEndpoint || STORAGE_CONFIG.endpoint || REMOTE_CREATE_ENDPOINT || REMOTE_LIST_ENDPOINT;
+const REMOTE_DELETE_METHOD = (STORAGE_CONFIG.deleteMethod || 'DELETE').toUpperCase();
+const REMOTE_UPDATE_HEADERS = STORAGE_CONFIG.updateHeaders || null;
+const REMOTE_DELETE_HEADERS = STORAGE_CONFIG.deleteHeaders || null;
+const REMOTE_UPDATE_BODY_CONFIG = STORAGE_CONFIG.updateBody || null;
+const REMOTE_DELETE_BODY_CONFIG = STORAGE_CONFIG.deleteBody || null;
+const REMOTE_UPDATE_QUERY_KEY = STORAGE_CONFIG.updateQueryKey || 'id';
+const REMOTE_DELETE_QUERY_KEY = STORAGE_CONFIG.deleteQueryKey || 'id';
 const REMOTE_ENABLE =
   STORAGE_MODE !== 'local' &&
   (typeof REMOTE_LIST_ENDPOINT === 'string' || typeof REMOTE_CREATE_ENDPOINT === 'string');
@@ -176,6 +194,16 @@ const transformOutgoing =
   typeof STORAGE_CONFIG.transformOutgoing === 'function'
     ? STORAGE_CONFIG.transformOutgoing
     : null;
+
+const buildUpdateQueryParams =
+  typeof STORAGE_CONFIG.buildUpdateQuery === 'function'
+    ? STORAGE_CONFIG.buildUpdateQuery
+    : (recordId) => ({ [REMOTE_UPDATE_QUERY_KEY]: `eq.${recordId}` });
+
+const buildDeleteQueryParams =
+  typeof STORAGE_CONFIG.buildDeleteQuery === 'function'
+    ? STORAGE_CONFIG.buildDeleteQuery
+    : (recordId) => ({ [REMOTE_DELETE_QUERY_KEY]: `eq.${recordId}` });
 
 const INCIDENT_FIELD_MAP_DEFAULT = {
   id: ['id', 'ID'],
@@ -357,7 +385,7 @@ function buildRequestBody(config, context) {
   if (isFunction(config)) {
     try {
       return config(context);
-    } catch (error) {
+  } catch (error) {
       console.warn('Request body builder threw an error', error);
       return null;
     }
@@ -366,6 +394,27 @@ function buildRequestBody(config, context) {
     return { ...config };
   }
   return null;
+}
+
+function buildRecordQueryParams(recordId, overrides) {
+  let base = {};
+  if (recordId) {
+    base = { id: `eq.${recordId}` };
+  }
+  if (isFunction(STORAGE_CONFIG.recordQueryBuilder)) {
+    try {
+      const result = STORAGE_CONFIG.recordQueryBuilder(recordId, overrides);
+      if (result && typeof result === 'object') {
+        base = { ...base, ...result };
+      }
+    } catch (error) {
+      console.warn('recordQueryBuilder failed', error);
+    }
+  }
+  if (overrides && typeof overrides === 'object') {
+    base = { ...base, ...overrides };
+  }
+  return base;
 }
 
 function escapeHtml(value) {
@@ -464,6 +513,36 @@ let navigationInstructionTimeout = null;
 let remoteSyncIntervalId = null;
 let pendingRetryIntervalId = null;
 let remoteSyncInFlight = false;
+let openActionMenu = null;
+let openActionMenuButton = null;
+
+function closeAllIncidentMenus() {
+  if (openActionMenu) {
+    openActionMenu.classList.remove('is-open');
+    openActionMenu = null;
+  }
+  if (openActionMenuButton) {
+    openActionMenuButton.setAttribute('aria-expanded', 'false');
+    openActionMenuButton = null;
+  }
+}
+
+function toggleIncidentMenu(menu, button) {
+  if (!menu) {
+    return;
+  }
+  if (openActionMenu === menu) {
+    closeAllIncidentMenus();
+    return;
+  }
+  closeAllIncidentMenus();
+  menu.classList.add('is-open');
+  openActionMenu = menu;
+  if (button) {
+    button.setAttribute('aria-expanded', 'true');
+    openActionMenuButton = button;
+  }
+}
 
 function sanitizeTitle(rawTitle) {
   if (!rawTitle) {
@@ -594,6 +673,34 @@ function saveIncidentsToStorage() {
   }
 }
 
+function removeIncidentLocal(recordId) {
+  const index = state.incidents.findIndex((incident) => incident.id === recordId);
+  if (index === -1) {
+    return false;
+  }
+  state.incidents.splice(index, 1);
+  saveIncidentsToStorage();
+  syncIncidentLayer();
+  renderIncidentList();
+  return true;
+}
+
+function updateIncidentLocal(recordId, updates) {
+  if (!updates || typeof updates !== 'object') {
+    return false;
+  }
+  const index = state.incidents.findIndex((incident) => incident.id === recordId);
+  if (index === -1) {
+    return false;
+  }
+  const merged = { ...state.incidents[index], ...updates };
+  state.incidents.splice(index, 1, merged);
+  saveIncidentsToStorage();
+  syncIncidentLayer();
+  renderIncidentList();
+  return true;
+}
+
 function upsertIncidents(records, options = {}) {
   const { triggerNotifications = true } = options;
   if (!Array.isArray(records) || !records.length) {
@@ -719,6 +826,7 @@ function renderIncidentList() {
   }
   const container = elements.incidentList;
   container.innerHTML = '';
+  closeAllIncidentMenus();
   if (!state.incidents.length) {
     const empty = document.createElement('p');
     empty.className = 'app-incident-empty';
@@ -747,6 +855,10 @@ function renderIncidentList() {
           return 'incident-status-evac';
         case STATUS_TYPES.SAFE:
           return 'incident-status-safe';
+        case STATUS_TYPES.ONGOING_RESCUE:
+          return 'incident-status-ongoing';
+        case STATUS_TYPES.RESCUED:
+          return 'incident-status-rescued';
         default:
           return 'incident-status-help';
       }
@@ -786,6 +898,58 @@ function renderIncidentList() {
 
     const actions = document.createElement('div');
     actions.className = 'app-incident-actions';
+
+    const actionButton = document.createElement('button');
+    actionButton.type = 'button';
+    actionButton.className = 'app-button';
+    actionButton.textContent = 'Action';
+    actionButton.setAttribute('aria-haspopup', 'true');
+    actionButton.setAttribute('aria-expanded', 'false');
+
+    const actionWrapper = document.createElement('div');
+    actionWrapper.className = 'app-incident-action-wrap';
+
+    const actionMenu = document.createElement('div');
+    actionMenu.className = 'incident-action-menu';
+    actionMenu.setAttribute('role', 'menu');
+    actionMenu.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+    const actionMenuId = `incident-action-menu-${incident.id}`;
+    actionMenu.id = actionMenuId;
+    actionButton.setAttribute('aria-controls', actionMenuId);
+
+    actionButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleIncidentMenu(actionMenu, actionButton);
+    });
+
+    const ongoingButton = document.createElement('button');
+    ongoingButton.type = 'button';
+    ongoingButton.textContent = 'On Going Rescue';
+    ongoingButton.setAttribute('role', 'menuitem');
+    ongoingButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handleIncidentOngoing(incident);
+    });
+
+    const rescuedButton = document.createElement('button');
+    rescuedButton.type = 'button';
+    rescuedButton.textContent = 'Rescued';
+    rescuedButton.setAttribute('role', 'menuitem');
+    rescuedButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handleIncidentRescued(incident);
+    });
+
+    actionMenu.appendChild(ongoingButton);
+    actionMenu.appendChild(rescuedButton);
+    actionWrapper.appendChild(actionButton);
+    actionWrapper.appendChild(actionMenu);
+
     const locateButton = document.createElement('button');
     locateButton.type = 'button';
     locateButton.className = 'app-button app-button-primary';
@@ -810,6 +974,7 @@ function renderIncidentList() {
         driveToIncident(incident);
       });
     }
+    actions.appendChild(actionWrapper);
     actions.appendChild(locateButton);
     actions.appendChild(driveButton);
     card.appendChild(header);
@@ -1056,10 +1221,10 @@ async function handleStatusSubmit(event) {
 
   if (!useRemoteStorage()) {
     showStatusFeedback('Thank you! Your status has been recorded.', 'success');
-    setTimeout(() => {
-      closeStatusPanel();
-      showStatusFeedback('');
-    }, 1800);
+  setTimeout(() => {
+    closeStatusPanel();
+    showStatusFeedback('');
+  }, 1800);
     return;
   }
 
@@ -1110,6 +1275,89 @@ function notifyNewIncident(incident) {
     locationText +
     (incident.notes ? `Notes: ${incident.notes}` : '');
   window.alert(message.trim());
+}
+
+function removeIncidentFromState(recordId) {
+  if (!recordId) {
+    return;
+  }
+  if (openActionMenu) {
+    closeAllIncidentMenus();
+  }
+  const nextIncidents = state.incidents.filter(
+    (existing) => existing && existing.id !== recordId
+  );
+  if (nextIncidents.length === state.incidents.length) {
+    return;
+  }
+  state.incidents = nextIncidents;
+  saveIncidentsToStorage();
+  syncIncidentLayer();
+  renderIncidentList();
+  clearPendingSyncEntry(recordId);
+}
+
+function updateIncidentInState(recordId, updates) {
+  if (!recordId || !updates || typeof updates !== 'object') {
+    return false;
+  }
+  let changed = false;
+  state.incidents = state.incidents.map((existing) => {
+    if (!existing || existing.id !== recordId) {
+      return existing;
+    }
+    changed = true;
+    return { ...existing, ...updates };
+  });
+  if (changed) {
+    saveIncidentsToStorage();
+    syncIncidentLayer();
+    renderIncidentList();
+  }
+  return changed;
+}
+
+async function handleIncidentOngoing(incident) {
+  if (!incident || !incident.id) {
+    return;
+  }
+  closeAllIncidentMenus();
+  if (incident.status === STATUS_TYPES.ONGOING_RESCUE) {
+    window.alert('This report is already marked as Ongoing Rescue.');
+    return;
+  }
+  const updates = { status: STATUS_TYPES.ONGOING_RESCUE };
+  try {
+    if (useRemoteStorage()) {
+      await updateIncidentRemote(incident.id, updates);
+    }
+    updateIncidentInState(incident.id, updates);
+    window.alert('Marked as rescue in progress.');
+  } catch (error) {
+    console.error('Unable to update incident status', error);
+    window.alert('Unable to update this report right now. Please try again.');
+  }
+}
+
+async function handleIncidentRescued(incident) {
+  if (!incident || !incident.id) {
+    return;
+  }
+  closeAllIncidentMenus();
+  const confirmed = window.confirm('Mark this report as rescued? It will be removed from the list.');
+  if (!confirmed) {
+    return;
+  }
+  try {
+    if (useRemoteStorage()) {
+      await deleteIncidentRemote(incident.id);
+    }
+    removeIncidentFromState(incident.id);
+    window.alert('Incident marked as rescued and removed from the list.');
+  } catch (error) {
+    console.error('Unable to remove incident', error);
+    window.alert('Unable to remove this report right now. Please try again.');
+  }
 }
 
 async function fetchRemoteIncidents() {
@@ -1193,6 +1441,49 @@ async function pushIncidentToRemote(record) {
   const response = await fetch(endpoint, requestInit);
   if (!response.ok) {
     throw new Error(`Remote sync failed (${response.status})`);
+  }
+}
+
+async function updateIncidentRemote(recordId, updates) {
+  if (!useRemoteStorage() || !REMOTE_UPDATE_ENDPOINT) {
+    return;
+  }
+  const queryParams = buildRecordQueryParams(recordId, STORAGE_CONFIG.updateQuery);
+  const endpoint = appendQueryParams(REMOTE_UPDATE_ENDPOINT, queryParams);
+  const payload =
+    buildRequestBody(REMOTE_UPDATE_BODY_CONFIG, { id: recordId, updates }) || updates;
+  const requestInit = {
+    method: REMOTE_UPDATE_METHOD,
+    headers: buildRequestHeaders(REMOTE_UPDATE_HEADERS),
+  };
+  if (REMOTE_UPDATE_METHOD !== 'GET') {
+    requestInit.body = JSON.stringify(payload);
+  }
+  const response = await fetch(endpoint, requestInit);
+  if (!response.ok) {
+    throw new Error(`Remote update failed (${response.status})`);
+  }
+}
+
+async function deleteIncidentRemote(recordId) {
+  if (!useRemoteStorage() || !REMOTE_DELETE_ENDPOINT) {
+    return;
+  }
+  const queryParams = buildRecordQueryParams(recordId, STORAGE_CONFIG.deleteQuery);
+  const endpoint = appendQueryParams(REMOTE_DELETE_ENDPOINT, queryParams);
+  const requestInit = {
+    method: REMOTE_DELETE_METHOD,
+    headers: buildRequestHeaders(REMOTE_DELETE_HEADERS),
+  };
+  if (REMOTE_DELETE_METHOD !== 'DELETE') {
+    const bodyPayload = buildRequestBody(REMOTE_DELETE_BODY_CONFIG, { id: recordId });
+    if (bodyPayload) {
+      requestInit.body = JSON.stringify(bodyPayload);
+    }
+  }
+  const response = await fetch(endpoint, requestInit);
+  if (!response.ok) {
+    throw new Error(`Remote delete failed (${response.status})`);
   }
 }
 
@@ -1623,6 +1914,10 @@ window.addEventListener('load', () => {
   setRoleContext(initialRole, baseLayers, floodGroup);
 
   initializeRemoteSync();
+
+  document.addEventListener('click', () => {
+    closeAllIncidentMenus();
+  });
 
   updateStatusSubmitState();
 

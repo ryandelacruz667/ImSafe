@@ -407,6 +407,63 @@ body {
 .app-incident-actions {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.app-incident-action-wrap {
+  position: relative;
+}
+
+.incident-action-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  display: none;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 170px;
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.6rem;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.25);
+  padding: 0.45rem;
+  z-index: 50;
+}
+
+.incident-action-menu.is-open {
+  display: flex;
+}
+
+.incident-action-menu button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.incident-action-menu button:hover,
+.incident-action-menu button:focus-visible {
+  background: rgba(59, 130, 246, 0.18);
+  color: #bfdbfe;
+}
+
+.incident-status-ongoing {
+  background: rgba(59, 130, 246, 0.15);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.incident-status-rescued {
+  background: rgba(34, 197, 94, 0.16);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.35);
 }
 
 .incident-popup {
